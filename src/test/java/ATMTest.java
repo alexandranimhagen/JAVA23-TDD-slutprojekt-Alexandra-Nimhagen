@@ -14,23 +14,26 @@ public class ATMTest {
     private Bank bank;
     private User user;
 
+    // Initialiserar objekt före varje test
     @BeforeEach
     void setUp() {
-        // Mock setup för enhetstester
+        // Skapar en mock av Bank för enhetstester
         mockBank = Mockito.mock(Bank.class);
         atm = new ATM();
         atm.setBank(mockBank);
 
-        // Direkt instansiering av Bank och User för integrationstester
+        // Skapar en faktisk Bank och User för integrationstester
         bank = new Bank();
         user = new User("12345", "1234", 1000);
         bank.addUser(user);
     }
 
+    // Enhetstester för ATM-klassen
     @Nested
     @DisplayName("Enhetstester för ATM-klassen")
     class ATMUnitTests {
 
+        // Testar att kort är låst vid insättning
         @Test
         @DisplayName("Verifierar att kort är låst vid insättning")
         void testInsertCardWhenCardIsLocked() {
@@ -40,6 +43,7 @@ public class ATMTest {
             verify(mockBank).isCardLocked("12345");
         }
 
+        // Testar saldo när ingen användare är inloggad
         @Test
         @DisplayName("Testar kontroll av saldo när ingen användare är inloggad")
         void testCheckBalanceWithoutUserLoggedIn() {
@@ -47,6 +51,7 @@ public class ATMTest {
             assertEquals(0.0, balance, "Saldot bör vara 0 när ingen användare är inloggad");
         }
 
+        // Testar insättning av 0 eller negativt belopp
         @Test
         @DisplayName("Testar insättning av 0 eller negativt belopp")
         void testDepositZeroOrNegativeAmount() {
@@ -61,6 +66,7 @@ public class ATMTest {
             assertEquals(1000, user.getBalance(), "Saldot bör inte ändras vid insättning av negativt belopp");
         }
 
+        // Testar uttag av belopp större än saldot
         @Test
         @DisplayName("Testar uttag av belopp större än saldot")
         void testWithdrawAmountGreaterThanBalance() {
@@ -74,6 +80,7 @@ public class ATMTest {
             assertEquals(100, user.getBalance(), "Saldot bör vara oförändrat efter misslyckat uttag");
         }
 
+        // Testar PIN-inmatning utan kort
         @Test
         @DisplayName("Testar PIN-inmatning när ingen användare är inloggad")
         void testEnterPinWithoutCardInserted() {
@@ -81,6 +88,7 @@ public class ATMTest {
             assertFalse(loginResult, "Inloggning bör misslyckas när ingen användare är inloggad");
         }
 
+        // Testar om getUserById returnerar null
         @Test
         @DisplayName("Testar null-returer från getUserById")
         void testGetUserByIdReturnsNull() {
@@ -90,6 +98,7 @@ public class ATMTest {
             assertFalse(cardInserted, "Kortinsättningen bör misslyckas om getUserById returnerar null");
         }
 
+        // Testar kortlåsning efter flera misslyckade PIN-försök
         @Test
         @DisplayName("Verifierar att kortet låses efter flera misslyckade PIN-försök")
         void testCardLockAfterMultipleFailedPinAttempts() {
@@ -106,6 +115,7 @@ public class ATMTest {
             verify(mockBank, times(3)).verifyPin("12345", "0000");
         }
 
+        // Testar att avsluta session under interaktion
         @Test
         @DisplayName("Testar avslutning av session mitt i en interaktion")
         void testEndSessionDuringInteraction() {
@@ -119,6 +129,7 @@ public class ATMTest {
             assertEquals(0.0, balance, "Saldot bör vara 0 efter avslutning av session");
         }
 
+        // Testar flera transaktioner under samma session
         @Test
         @DisplayName("Testar flera transaktioner under samma session")
         void testMultipleTransactions() {
@@ -133,6 +144,7 @@ public class ATMTest {
             verify(mockBank, times(2)).updateUser(user);
         }
 
+        // Testar inmatning av tom eller ogiltig PIN
         @Test
         @DisplayName("Testar inmatning av tom eller ogiltig PIN")
         void testEnterEmptyOrInvalidPin() {
@@ -148,6 +160,7 @@ public class ATMTest {
             assertFalse(invalidPinResult, "Inmatning av ogiltiga tecken som PIN bör misslyckas");
         }
 
+        // Testar att bankens namn returneras korrekt
         @Test
         @DisplayName("Verifierar att getBankName() returnerar korrekt namn")
         void testGetBankName() {
@@ -156,6 +169,7 @@ public class ATMTest {
         }
     }
 
+    // Integrationstester för ATM-flöde
     @Nested
     @DisplayName("Integrationstester för ATM-flöde")
     class ATMIntegrationTests {
@@ -180,6 +194,7 @@ public class ATMTest {
         }
     }
 
+    // Tester för Bank-klassen
     @Nested
     @DisplayName("Tester för Bank-klassen")
     class BankTests {
