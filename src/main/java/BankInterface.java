@@ -8,12 +8,7 @@ public interface BankInterface {
      // Metod för att verifiera om en given PIN-kod är korrekt för ett användar-ID
      boolean verifyPin(String userId, String pin);
 
-     // Metod för att hämta antalet misslyckade försök för en given användar-ID
-     int getFailedAttempts(String userId);
-
      // Metod för att lägga till en användare i banken
      void addUser(User user);
 
-     // Metod för att uppdatera en användares information i banken
-     void updateUser(User user);
 }

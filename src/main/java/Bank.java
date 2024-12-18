@@ -2,88 +2,77 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Bank implements BankInterface {
-    // Karta för att lagra användare med deras ID som nyckel
-    private final Map<String, User> users = new HashMap<>();
+    private final Map<String, User> users = new HashMap<>(); // Lagrar användare med ID som nyckel
 
-    // Metod för att hämta en användare baserat på ID
+    public Bank() {
+        // Skapar en standardanvändare vid initiering
+        users.put("12345", new User("12345", "1234", 1000.0));
+    }
+
+    // Hämtar en användare baserat på ID
     public User getUserById(String id) {
         if (id == null || id.isEmpty()) {
-            // Kontroll för ogiltigt ID och utskrift av felmeddelande
-            System.out.println("Ogiltigt ID inmatat.");
-            return null;
+            return null; // Returnerar null om ID är tomt eller null
         }
         return users.get(id); // Returnerar användaren om den finns
     }
 
-    // Metod för att kontrollera om ett kort är låst
+    // Kollar om kortet är låst för en viss användare
     public boolean isCardLocked(String userId) {
         User user = users.get(userId);
-        if (user == null) {
-            // Utskrift om användaren inte hittas
-            System.out.println("Användare med ID " + userId + " hittades inte.");
-            return false;
-        }
-        return user.isLocked(); // Returnerar kortets låsstatus
+        return user != null && user.isLocked(); // Returnerar true om användaren finns och kortet är låst
     }
 
-    // Statisk metod för att hämta bankens namn
+    // Returnerar bankens namn
     public static String getBankName() {
         return "MockBank";
     }
 
-    // Metod för att verifiera en PIN-kod för en given användare
+    // Verifierar om PIN-koden är korrekt för en användare
     public boolean verifyPin(String userId, String pin) {
-        if (pin == null || pin.isEmpty()) {
-            // Kontroll för ogiltig PIN och utskrift av felmeddelande
-            System.out.println("PIN är ogiltig.");
-            return false;
-        }
         User user = users.get(userId);
-        if (user == null) {
-            // Utskrift om användaren inte hittas
-            System.out.println("Användare med ID " + userId + " hittades inte.");
-            return false;
-        }
-        return user.getPin().equals(pin); // Returnerar om PIN är korrekt
+        return user != null && user.getPin().equals(pin); // Jämför PIN om användaren finns
     }
 
-    // Metod för att hämta antalet misslyckade försök för en användare
-    public int getFailedAttempts(String userId) {
-        User user = users.get(userId);
-        if (user == null) {
-            // Utskrift om användaren inte hittas och returnerar 0 som standardvärde
-            System.out.println("Användare med ID " + userId + " hittades inte. Returnerar 0 misslyckade försök.");
-            return 0;
-        }
-        return user.getFailedAttempts(); // Returnerar antalet misslyckade försök
-    }
-
-    // Metod för att lägga till en ny användare
+    // Lägger till en ny användare
     public void addUser(User user) {
+        // Kollar om användaren eller dess ID är ogiltigt
         if (user == null || user.getId() == null || user.getId().isEmpty()) {
-            // Kontroll för ogiltig användare och utskrift av felmeddelande
             System.out.println("Ogiltig användare. Kan inte läggas till.");
             return;
         }
+        // Lägger till användaren om ID inte redan finns
         if (!users.containsKey(user.getId())) {
-            // Lägger till användaren om den inte redan finns
             users.put(user.getId(), user);
             System.out.println("Användare med ID " + user.getId() + " har lagts till.");
         } else {
-            // Utskrift om användaren redan finns
-            System.out.println("Användare med ID " + user.getId() + " finns redan.");
+            System.out.println("Användare med ID " + user.getId() + " finns redan."); // Meddelar om användaren redan finns
         }
     }
 
-    // Metod för att uppdatera en användare
-    public void updateUser(User user) {
-        if (user == null || user.getId() == null || !users.containsKey(user.getId())) {
-            // Kontroll för ogiltig eller icke-existerande användare och utskrift av felmeddelande
-            System.out.println("Användare med ID " + (user != null ? user.getId() : "null") + " kan inte uppdateras.");
-            return;
+    // Hanterar insättning av pengar för en användare
+    public void deposit(String userId, double amount) {
+        User user = users.get(userId);
+        if (user != null && amount > 0) {
+            user.setBalance(user.getBalance() + amount); // Uppdaterar saldot direkt i användarobjektet
+        } else {
+            throw new IllegalArgumentException("Ogiltigt användar-ID eller belopp."); // Hanterar felaktiga indata
         }
-        // Uppdaterar användaren i kartan
-        users.put(user.getId(), user);
-        System.out.println("Användare med ID " + user.getId() + " har uppdaterats.");
+    }
+
+    // Hanterar uttag av pengar för en användare
+    public boolean withdraw(String userId, double amount) {
+        User user = users.get(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("Ogiltigt användar-ID."); // Hanterar ogiltigt användar-ID
+        }
+        if (amount > 0 && user.getBalance() >= amount) {
+            user.setBalance(user.getBalance() - amount); // Minskar saldot vid ett lyckat uttag
+            return true;
+        } else if (amount <= 0) {
+            throw new IllegalArgumentException("Beloppet måste vara större än 0."); // Hanterar negativa belopp
+        } else {
+            throw new IllegalArgumentException("Otillräckligt saldo."); // Meddelar om saldo inte räcker
+        }
     }
 }

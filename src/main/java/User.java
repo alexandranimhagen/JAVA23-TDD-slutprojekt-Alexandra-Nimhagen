@@ -1,5 +1,5 @@
 public class User {
-    // Deklaration av fält för användarens ID, PIN, saldo, antal misslyckade försök och om kortet är låst
+    // Fält för användarens ID, PIN, saldo, antal misslyckade försök och låsstatus
     private String id;
     private String pin;
     private double balance;
@@ -8,80 +8,64 @@ public class User {
 
     // Konstruktor för att skapa en ny användare
     public User(String id, String pin, double balance) {
-        // Kontroll för ogiltiga inmatningar vid skapande av användare
         if (id == null || id.isEmpty() || pin == null || pin.isEmpty() || balance < 0) {
             throw new IllegalArgumentException("Ogiltiga värden vid skapande av användare.");
         }
-        // Tilldelar värden till fält
         this.id = id;
         this.pin = pin;
         this.balance = balance;
-        this.failedAttempts = 0; // Sätter antalet misslyckade försök till 0
-        this.isLocked = false;   // Kortet är initialt inte låst
+        this.failedAttempts = 0; // Initierar antal misslyckade försök till 0
+        this.isLocked = false;   // Sätter kortstatus till olåst
     }
 
     // Getter för användarens ID
-    public String getId() { return id; }
+    public String getId() {
+        return id;
+    }
 
     // Getter för användarens PIN
-    public String getPin() { return pin; }
+    public String getPin() {
+        return pin;
+    }
 
     // Getter för användarens saldo
-    public double getBalance() { return balance; }
+    public double getBalance() {
+        return balance;
+    }
 
-    // Getter för antalet misslyckade försök
-    public int getFailedAttempts() { return failedAttempts; }
+    // Setter för användarens saldo
+    public void setBalance(double balance) {
+        if (balance < 0) {
+            throw new IllegalArgumentException("Saldo kan inte vara negativt.");
+        }
+        this.balance = balance;
+    }
 
-    // Getter för att kontrollera om kortet är låst
-    public boolean isLocked() { return isLocked; }
+    // Getter för antal misslyckade försök
+    public int getFailedAttempts() {
+        return failedAttempts;
+    }
 
-    // Metod för att låsa kortet
+    // Kontrollerar om kortet är låst
+    public boolean isLocked() {
+        return isLocked;
+    }
+
+    // Låser kortet
     public void lockCard() {
-        this.isLocked = true; // Sätter kortet till låst
-        System.out.println("Kortet är nu låst.");
+        this.isLocked = true;
     }
 
-    // Metod för att öka antalet misslyckade försök
+    // Ökar antal misslyckade försök och låser kortet om det är tre eller fler försök
     public void incrementFailedAttempts() {
-        this.failedAttempts++; // Ökar antalet misslyckade försök med 1
-        // Låser kortet om det är minst tre misslyckade försök och kortet inte redan är låst
+        this.failedAttempts++;
         if (this.failedAttempts >= 3 && !this.isLocked) {
-            lockCard();
+            lockCard(); // Låser kortet vid tre misslyckade försök
         }
     }
 
-    // Metod för att återställa antalet misslyckade försök
+    // Återställer misslyckade försök till 0
     public void resetFailedAttempts() {
-        this.failedAttempts = 0; // Sätter antalet misslyckade försök till 0
-    }
-
-    // Metod för att sätta in pengar på användarens konto
-    public void deposit(double amount) {
-        if (amount > 0) {
-            // Ökar saldot med det insatta beloppet
-            this.balance += amount;
-            System.out.println("Insättning av " + amount + " kr lyckades. Ny balans: " + this.balance + " kr.");
-        } else {
-            // Meddelar att beloppet måste vara positivt
-            System.out.println("Beloppet måste vara större än noll.");
-        }
-    }
-
-    // Metod för att ta ut pengar från användarens konto
-    public boolean withdraw(double amount) {
-        if (amount > 0 && this.balance >= amount) {
-            // Minskar saldot med det uttagna beloppet om saldot är tillräckligt
-            this.balance -= amount;
-            System.out.println("Uttag av " + amount + " kr lyckades. Ny balans: " + this.balance + " kr.");
-            return true; // Returnerar true om uttaget lyckades
-        } else if (amount <= 0) {
-            // Meddelar om beloppet är ogiltigt
-            System.out.println("Beloppet måste vara större än noll.");
-            return false; // Returnerar false om beloppet är noll eller negativt
-        } else {
-            // Meddelar om saldot är otillräckligt
-            System.out.println("Otillräckligt saldo.");
-            return false; // Returnerar false om saldot inte är tillräckligt
-        }
+        this.failedAttempts = 0;
     }
 }

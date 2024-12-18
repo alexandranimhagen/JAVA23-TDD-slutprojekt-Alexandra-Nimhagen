@@ -3,262 +3,157 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-
+import org.mockito.MockedStatic;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
+import java.util.Scanner;
 
 public class ATMTest {
 
-    private ATM atm;
-    private Bank mockBank;
-    private Bank bank;
-    private User user;
+    private ATM atm; // Objektet av ATM-klassen som vi testar
+    private Bank mockBank; // En mockad version av Bank för att simulera bankens funktionalitet
+    private User user; // En dummy-användare för tester
 
-    // Initialiserar objekt före varje test
     @BeforeEach
     void setUp() {
-        // Skapar en mock av Bank för enhetstester
+        // Skapa mock-objekt för Bank och initialisera ATM
         mockBank = Mockito.mock(Bank.class);
         atm = new ATM();
-        atm.setBank(mockBank);
+        atm.setBank(mockBank); // Koppla mock-banken till ATM
 
-        // Skapar en faktisk Bank och User för integrationstester
-        bank = new Bank();
+        // Skapa en dummy-användare
         user = new User("12345", "1234", 1000);
-        bank.addUser(user);
     }
 
-    // Enhetstester för ATM-klassen
     @Nested
     @DisplayName("Enhetstester för ATM-klassen")
     class ATMUnitTests {
 
-        // Testar att kort är låst vid insättning
         @Test
-        @DisplayName("Verifierar att kort är låst vid insättning")
-        void testInsertCardWhenCardIsLocked() {
-            when(mockBank.isCardLocked("12345")).thenReturn(true);
-            boolean result = atm.insertCard("12345");
-            assertFalse(result, "Kortinsättningen bör misslyckas när kortet är låst");
-            verify(mockBank).isCardLocked("12345");
+        @DisplayName("Testar PIN-flöde med korrekt PIN")
+        void testHandlePinEntryCorrectPin() {
+            // Mocka beteendet för att returnera användaren och verifiera PIN
+            when(mockBank.getUserById("12345")).thenReturn(user);
+            when(mockBank.verifyPin("12345", "1234")).thenReturn(true);
+
+            atm.insertCard("12345"); // Sätt in kortet
+
+            // Simulera att användaren anger rätt PIN
+            Scanner scanner = new Scanner("1234\n");
+            boolean result = atm.handlePinEntry(scanner);
+
+            // Kontrollera att PIN-flödet lyckas och att misslyckade försök återställs
+            assertTrue(result, "PIN-flödet bör lyckas med korrekt PIN.");
+            assertEquals(0, user.getFailedAttempts(), "Antalet misslyckade försök bör återställas.");
+            verify(mockBank).verifyPin("12345", "1234"); // Verifiera att PIN-kontroll anropades
         }
 
-        // Testar saldo när ingen användare är inloggad
         @Test
-        @DisplayName("Testar kontroll av saldo när ingen användare är inloggad")
-        void testCheckBalanceWithoutUserLoggedIn() {
-            double balance = atm.checkBalance();
-            assertEquals(0.0, balance, "Saldot bör vara 0 när ingen användare är inloggad");
-        }
-
-        // Testar insättning av 0 eller negativt belopp
-        @Test
-        @DisplayName("Testar insättning av 0 eller negativt belopp")
-        void testDepositZeroOrNegativeAmount() {
-            User user = new User("12345", "1234", 1000);
+        @DisplayName("Testar PIN-flöde med tre misslyckade försök")
+        void testHandlePinEntryLockCardAfterThreeAttempts() {
+            // Mocka för att returnera användaren
             when(mockBank.getUserById("12345")).thenReturn(user);
 
-            atm.insertCard("12345");
-            atm.deposit(0);
-            assertEquals(1000, user.getBalance(), "Saldot bör inte ändras vid insättning av 0");
+            atm.insertCard("12345"); // Sätt in kortet
 
-            atm.deposit(-500);
-            assertEquals(1000, user.getBalance(), "Saldot bör inte ändras vid insättning av negativt belopp");
+            // Simulera att användaren anger fel PIN tre gånger
+            Scanner scanner = new Scanner("1111\n1111\n1111\n");
+            boolean result = atm.handlePinEntry(scanner);
+
+            // Kontrollera att flödet misslyckas och kortet låses efter tre försök
+            assertFalse(result, "PIN-flödet bör misslyckas efter tre försök.");
+            assertTrue(user.isLocked(), "Kortet bör låsas efter tre misslyckade försök.");
+            assertNull(atm.currentUser, "Användarsessionen bör avslutas efter kortlåsning.");
+            assertEquals(3, user.getFailedAttempts(), "Antalet misslyckade försök bör vara tre.");
         }
 
-        // Testar uttag av belopp större än saldot
         @Test
-        @DisplayName("Testar uttag av belopp större än saldot")
-        void testWithdrawAmountGreaterThanBalance() {
-            User user = new User("12345", "1234", 100);
+        @DisplayName("Verifierar att insättningsmetoden i banken anropas korrekt")
+        void testDepositCallsBankMethod() {
+            // Mocka för att returnera användaren
             when(mockBank.getUserById("12345")).thenReturn(user);
+            atm.insertCard("12345"); // Sätt in kortet
 
-            atm.insertCard("12345");
-            boolean result = atm.withdraw(200);
+            // Simulera en insättning
+            Scanner scanner = new Scanner("500\n");
+            atm.handleDeposit(scanner);
 
-            assertFalse(result, "Uttaget bör misslyckas när beloppet är större än saldot");
-            assertEquals(100, user.getBalance(), "Saldot bör vara oförändrat efter misslyckat uttag");
+            // Kontrollera att bankens insättningsmetod anropas
+            verify(mockBank).deposit(eq("12345"), eq(500.0));
         }
 
-        // Testar PIN-inmatning utan kort
         @Test
-        @DisplayName("Testar PIN-inmatning när ingen användare är inloggad")
-        void testEnterPinWithoutCardInserted() {
-            boolean loginResult = atm.enterPin("1234");
-            assertFalse(loginResult, "Inloggning bör misslyckas när ingen användare är inloggad");
-        }
-
-        // Testar om getUserById returnerar null
-        @Test
-        @DisplayName("Testar null-returer från getUserById")
-        void testGetUserByIdReturnsNull() {
-            when(mockBank.getUserById("12345")).thenReturn(null);
-
-            boolean cardInserted = atm.insertCard("12345");
-            assertFalse(cardInserted, "Kortinsättningen bör misslyckas om getUserById returnerar null");
-        }
-
-        // Testar kortlåsning efter flera misslyckade PIN-försök
-        @Test
-        @DisplayName("Verifierar att kortet låses efter flera misslyckade PIN-försök")
-        void testCardLockAfterMultipleFailedPinAttempts() {
-            User user = new User("12345", "1234", 1000);
+        @DisplayName("Verifierar att uttagsmetoden i banken anropas korrekt")
+        void testWithdrawCallsBankMethod() {
+            // Mocka för att returnera användaren
             when(mockBank.getUserById("12345")).thenReturn(user);
-            when(mockBank.verifyPin("12345", "0000")).thenReturn(false);
+            atm.insertCard("12345"); // Sätt in kortet
 
-            atm.insertCard("12345");
-            atm.enterPin("0000");
-            atm.enterPin("0000");
-            atm.enterPin("0000");
+            // Mocka bankens beteende vid uttag
+            when(mockBank.withdraw(eq("12345"), eq(400.0))).thenReturn(true);
+            Scanner scanner = new Scanner("400\n");
+            atm.handleWithdraw(scanner);
 
-            assertTrue(user.isLocked(), "Kortet bör vara låst efter tre misslyckade PIN-försök");
-            verify(mockBank, times(3)).verifyPin("12345", "0000");
+            // Kontrollera att bankens uttagsmetod anropas
+            verify(mockBank).withdraw(eq("12345"), eq(400.0));
         }
 
-        // Testar att avsluta session under interaktion
         @Test
-        @DisplayName("Testar avslutning av session mitt i en interaktion")
-        void testEndSessionDuringInteraction() {
-            User user = new User("12345", "1234", 1000);
-            when(mockBank.getUserById("12345")).thenReturn(user);
-
-            atm.insertCard("12345");
-            atm.endSession();
-
-            double balance = atm.checkBalance();
-            assertEquals(0.0, balance, "Saldot bör vara 0 efter avslutning av session");
-        }
-
-        // Testar flera transaktioner under samma session
-        @Test
-        @DisplayName("Testar flera transaktioner under samma session")
-        void testMultipleTransactions() {
-            User user = new User("12345", "1234", 1000);
-            when(mockBank.getUserById("12345")).thenReturn(user);
-
-            atm.insertCard("12345");
-            atm.deposit(500);
-            atm.withdraw(300);
-
-            assertEquals(1200, user.getBalance(), "Saldot bör vara korrekt efter flera transaktioner");
-            verify(mockBank, times(2)).updateUser(user);
-        }
-
-        // Testar inmatning av tom eller ogiltig PIN
-        @Test
-        @DisplayName("Testar inmatning av tom eller ogiltig PIN")
-        void testEnterEmptyOrInvalidPin() {
-            User user = new User("12345", "1234", 1000);
-            when(mockBank.getUserById("12345")).thenReturn(user);
-
-            atm.insertCard("12345");
-
-            boolean emptyPinResult = atm.enterPin("");
-            assertFalse(emptyPinResult, "Inmatning av tom PIN bör misslyckas");
-
-            boolean invalidPinResult = atm.enterPin("!@#$");
-            assertFalse(invalidPinResult, "Inmatning av ogiltiga tecken som PIN bör misslyckas");
-        }
-
-        // Testar att bankens namn returneras korrekt
-        @Test
-        @DisplayName("Verifierar att getBankName() returnerar korrekt namn")
+        @DisplayName("Mocka och verifiera statisk metod getBankName")
         void testGetBankName() {
-            String bankName = Bank.getBankName();
-            assertEquals("MockBank", bankName, "Banknamnet bör vara 'MockBank'");
+            // Mocka den statiska metoden för att returnera bankens namn
+            try (MockedStatic<Bank> mockedStatic = mockStatic(Bank.class)) {
+                mockedStatic.when(Bank::getBankName).thenReturn("Mocked Bank");
+
+                atm.displayBankName(); // Visa bankens namn
+
+                // Verifiera att den statiska metoden anropades
+                mockedStatic.verify(Bank::getBankName);
+            }
         }
     }
 
-    // Integrationstester för ATM-flöde
     @Nested
     @DisplayName("Integrationstester för ATM-flöde")
     class ATMIntegrationTests {
 
         @Test
-        @DisplayName("Integrationstest för ATM-flöde")
-        void testATMFlow() {
+        @DisplayName("Integrationstest för PIN-flöde")
+        void testHandlePinEntryIntegration() {
+            // Skapa en riktig bank för integrationstest
+            Bank actualBank = new Bank();
             ATM atmIntegration = new ATM();
-            atmIntegration.setBank(bank);
+            atmIntegration.setBank(actualBank);
 
-            assertTrue(atmIntegration.insertCard("12345"), "Kortinsättningen bör lyckas");
-            assertTrue(atmIntegration.enterPin("1234"), "Inloggningen bör lyckas med korrekt PIN");
-            assertEquals(1000.0, atmIntegration.checkBalance(), "Saldot bör vara korrekt");
+            // Lägg till en användare i den riktiga banken
+            User user = new User("12345", "1234", 1000);
+            actualBank.addUser(user);
 
-            atmIntegration.deposit(500);
-            assertEquals(1500.0, atmIntegration.checkBalance(), "Saldot bör uppdateras efter insättning");
-            assertTrue(atmIntegration.withdraw(200), "Uttaget bör vara lyckat");
-            assertEquals(1300.0, atmIntegration.checkBalance(), "Saldot bör uppdateras efter uttag");
+            atmIntegration.insertCard("12345"); // Sätt in kortet
+            Scanner scanner = new Scanner("1234\n"); // Ange korrekt PIN
+            boolean result = atmIntegration.handlePinEntry(scanner);
 
-            atmIntegration.endSession();
-            assertEquals(0.0, atmIntegration.checkBalance(), "Saldot bör vara 0 efter avslutad session");
-        }
-    }
-
-    // Tester för Bank-klassen
-    @Nested
-    @DisplayName("Tester för Bank-klassen")
-    class BankTests {
-
-        @Test
-        @DisplayName("Testar att hämta en användare")
-        void testGetUserById() {
-            User foundUser = bank.getUserById("12345");
-            assertNotNull(foundUser, "Användaren bör hittas");
-            assertEquals("12345", foundUser.getId(), "Användar-ID bör stämma");
-
-            assertNull(bank.getUserById("99999"), "Ej existerande användare bör returnera null");
+            // Kontrollera att PIN-flödet lyckas
+            assertTrue(result, "PIN-flödet bör lyckas med korrekt PIN i integrationstest.");
         }
 
         @Test
-        @DisplayName("Testar verifiering av PIN")
-        void testVerifyPin() {
-            assertTrue(bank.verifyPin("12345", "1234"), "PIN bör vara korrekt");
-            assertFalse(bank.verifyPin("12345", "0000"), "Felaktig PIN bör inte accepteras");
+        @DisplayName("Testar PIN-flöde med tre misslyckade försök")
+        void testHandlePinEntryLockCardAfterThreeAttempts() {
+            // Mocka för att returnera användaren
+            when(mockBank.getUserById("12345")).thenReturn(user);
 
-            assertFalse(bank.verifyPin("99999", "1234"), "PIN-verifiering för ej existerande användare bör returnera false");
-        }
+            atm.insertCard("12345"); // Sätt in kortet
 
-        @Test
-        @DisplayName("Testar misslyckade försök")
-        void testGetFailedAttempts() {
-            user.incrementFailedAttempts();
-            assertEquals(1, bank.getFailedAttempts("12345"), "Antal misslyckade försök bör vara 1");
+            // Simulera tre felaktiga PIN-försök
+            Scanner scanner = new Scanner("1111\n1111\n1111\n");
+            boolean result = atm.handlePinEntry(scanner);
 
-            assertEquals(0, bank.getFailedAttempts("99999"), "Misslyckade försök för ej existerande användare bör vara 0");
-        }
-
-        @Test
-        @DisplayName("Testar uppdatering av användare")
-        void testUpdateUser() {
-            user.deposit(500);
-            bank.updateUser(user);
-            assertEquals(1500, bank.getUserById("12345").getBalance(), "Balansen bör uppdateras korrekt");
-
-            User nonExistentUser = new User("99999", "0000", 500);
-            bank.updateUser(nonExistentUser);
-            assertNull(bank.getUserById("99999"), "Ej existerande användare bör inte läggas till vid uppdatering");
-        }
-
-        @Test
-        @DisplayName("Testar låsning av kort efter tre misslyckade försök")
-        void testLockCardAfterThreeFailedAttempts() {
-            user.incrementFailedAttempts();
-            user.incrementFailedAttempts();
-            user.incrementFailedAttempts();
-            bank.updateUser(user);
-            assertTrue(bank.getUserById("12345").isLocked(), "Kortet bör vara låst efter tre misslyckade försök");
-        }
-
-        @Test
-        @DisplayName("Testar om kortet är låst")
-        void testIsCardLocked() {
-            assertFalse(bank.isCardLocked("12345"), "Kortet bör inte vara låst initialt");
-
-            user.lockCard();
-            bank.updateUser(user);
-            assertTrue(bank.isCardLocked("12345"), "Kortet bör vara låst efter att användaren låsts");
-
-            assertFalse(bank.isCardLocked("99999"), "Kortstatus för ej existerande användare bör returnera false");
+            // Kontrollera att kortet låses och sessionen avslutas
+            assertFalse(result, "PIN-flödet bör misslyckas efter tre försök.");
+            assertTrue(user.isLocked(), "Kortet bör låsas efter tre misslyckade försök.");
+            assertNull(atm.currentUser, "Användarsessionen bör avslutas efter kortlåsning.");
+            assertEquals(3, user.getFailedAttempts(), "Antalet misslyckade försök bör vara tre.");
         }
     }
 }

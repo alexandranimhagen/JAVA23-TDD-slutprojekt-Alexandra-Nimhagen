@@ -3,135 +3,85 @@ import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        // Skapar en instans av Bank
         Bank bank = new Bank();
-
-        // Skapar och lägger till användare i banken
-        User user1 = new User("1234", "1234", 1000.0);
-        User user2 = new User("5678", "5678", 500.0);
-        bank.addUser(user1);
-        bank.addUser(user2);
-
-        // Skapar en instans av ATM och associerar den med banken
         ATM atm = new ATM();
         atm.setBank(bank);
 
-        // Skapar en scanner för att läsa användarinmatning
         Scanner scanner = new Scanner(System.in);
-        boolean validInput;
 
-        // Ber användaren att ange sitt ID för att sätta in kortet
-        System.out.print("Ange användar-ID för att sätta in kortet: ");
-        String userId = scanner.nextLine().trim();
+        // Visa välkomstmeddelande och bankens namn
+        System.out.println("Välkommen till Bankomaten! Denna bankomat är kopplad till: " + Bank.getBankName());
 
-        // Kontrollerar om kortet sätts in korrekt
-        if (atm.insertCard(userId)) {
-            System.out.println("Fortsätt med att ange PIN...");
-            System.out.print("Ange PIN: ");
-            String pin = scanner.nextLine().trim();
+        // Huvudloopen för programmet
+        while (true) {
+            // Be användaren att ange sitt ID eller avsluta programmet
+            System.out.print("Ange användar-ID för att sätta in kortet. För att avsluta programmet skriv '0': ");
+            String userId = scanner.nextLine().trim();
 
-            // Kontrollerar om PIN är korrekt
-            if (atm.enterPin(pin)) {
-                System.out.println("Inloggning lyckades!");
+            // Avsluta programmet om användaren väljer '0'
+            if (userId.equals("0")) {
+                System.out.println("Programmet avslutas. Tack för att du använde tjänsten!");
+                break;
+            }
 
-                boolean running = true;
-                while (running) {
-                    // Visar meny för användaren
-                    System.out.println("\nVälj ett alternativ:");
-                    System.out.println("1. Kontrollera saldo");
-                    System.out.println("2. Insättning");
-                    System.out.println("3. Uttag");
-                    System.out.println("4. Avsluta session");
-
-                    int choice = -1;
-                    validInput = false;
-                    // Kontrollerar att inmatningen är ett giltigt nummer
-                    while (!validInput) {
-                        try {
-                            System.out.print("Ange ditt val: ");
-                            choice = scanner.nextInt();
-                            validInput = true;
-                        } catch (InputMismatchException e) {
-                            // Hanterar ogiltig inmatning
-                            System.out.println("Ogiltig inmatning. Ange ett nummer mellan 1 och 4.");
-                            scanner.nextLine(); // Rensar bufferten för att undvika loop
-                        }
-                    }
-
-                    // Hanterar användarens val
-                    switch (choice) {
-                        case 1:
-                            // Kontrollera saldo
-                            atm.checkBalance();
-                            break;
-                        case 2:
-                            // Insättning av pengar
-                            System.out.print("Ange belopp att sätta in: ");
-                            double depositAmount = -1;
-                            validInput = false;
-                            while (!validInput) {
-                                try {
-                                    depositAmount = scanner.nextDouble();
-                                    if (depositAmount > 0) {
-                                        validInput = true;
-                                        atm.deposit(depositAmount);
-                                    } else {
-                                        System.out.println("Beloppet måste vara positivt. Försök igen.");
-                                    }
-                                } catch (InputMismatchException e) {
-                                    // Hanterar ogiltig inmatning
-                                    System.out.println("Ogiltig inmatning. Ange ett numeriskt belopp.");
-                                    scanner.nextLine(); // Rensar bufferten
-                                }
-                            }
-                            break;
-                        case 3:
-                            // Uttag av pengar
-                            System.out.print("Ange belopp att ta ut: ");
-                            double withdrawAmount = -1;
-                            validInput = false;
-                            while (!validInput) {
-                                try {
-                                    withdrawAmount = scanner.nextDouble();
-                                    if (withdrawAmount > 0) {
-                                        validInput = true;
-                                        boolean success = atm.withdraw(withdrawAmount);
-                                        if (success) {
-                                            System.out.println("Uttaget genomfördes.");
-                                        } else {
-                                            System.out.println("Uttaget misslyckades.");
-                                        }
-                                    } else {
-                                        System.out.println("Beloppet måste vara positivt. Försök igen.");
-                                    }
-                                } catch (InputMismatchException e) {
-                                    // Hanterar ogiltig inmatning
-                                    System.out.println("Ogiltig inmatning. Ange ett numeriskt belopp.");
-                                    scanner.nextLine(); // Rensar bufferten
-                                }
-                            }
-                            break;
-                        case 4:
-                            // Avsluta session
-                            atm.endSession();
-                            running = false;
-                            break;
-                        default:
-                            // Hanterar ogiltiga val
-                            System.out.println("Ogiltigt val, försök igen.");
-                            break;
-                    }
+            // Försök sätta in kortet
+            if (atm.insertCard(userId)) {
+                // Hantera PIN-inmatning
+                if (atm.handlePinEntry(scanner)) {
+                    processUserChoices(scanner, atm); // Starta session
+                } else {
+                    System.out.println("Inloggningen misslyckades. Försök igen.\n"); // Lägg till radbrytning här
                 }
             } else {
-                // Meddelar om PIN är felaktig
-                System.out.println("Fel PIN. Kortet kan vara låst efter flera misslyckade försök.");
+                System.out.println("Kortet kunde inte sättas in. Försök igen.\n"); // Lägg till radbrytning här
             }
-        } else {
-            // Meddelar om kortinsättningen misslyckas
-            System.out.println("Kortinsättningen misslyckades. Kortet är kanske låst eller ogiltigt.");
         }
+    }
 
-        // Stänger scannern
-        scanner.close();
+    // Metod för att hantera användarens val i sessionen
+    private static void processUserChoices(Scanner scanner, ATM atm) {
+        boolean sessionRunning = true;
+
+        while (sessionRunning) {
+            // Visa meny för användaren
+            System.out.println("\nVälj ett alternativ:");
+            System.out.println("0. Avsluta programmet");
+            System.out.println("1. Kontrollera saldo");
+            System.out.println("2. Insättning");
+            System.out.println("3. Uttag");
+            System.out.println("4. Logga ut och avsluta session");
+
+            int choice = -1;
+
+            try {
+                // Läs användarens val
+                System.out.print("Ange ditt val: ");
+                choice = scanner.nextInt();
+                scanner.nextLine(); // Rensa bufferten
+            } catch (InputMismatchException e) {
+                System.out.println("Ogiltig inmatning. Ange ett nummer mellan 0 och 4.");
+                scanner.nextLine(); // Rensa bufferten
+                continue;
+            }
+
+            // Hantera användarens val
+            switch (choice) {
+                case 0 -> {
+                    // Avsluta programmet
+                    System.out.println("Programmet avslutas. Tack för att du använde tjänsten!");
+                    System.exit(0);
+                }
+                case 1 -> atm.handleCheckBalance(); // Visa saldo
+                case 2 -> atm.handleDeposit(scanner); // Hantera insättning
+                case 3 -> atm.handleWithdraw(scanner); // Hantera uttag
+                case 4 -> {
+                    atm.handleEndSession();
+                    System.out.println("Session avslutad. Du återgår nu till huvudmenyn.");
+                    sessionRunning = false;
+                }
+
+                default -> System.out.println("Ogiltigt val. Försök igen."); // Hantera felaktig inmatning
+            }
+        }
     }
 }
