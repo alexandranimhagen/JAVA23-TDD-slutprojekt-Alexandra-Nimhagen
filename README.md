@@ -34,9 +34,9 @@ Open the project in your Java IDE (e.g. IntelliJ or Eclipse)
 Run Main.java (or equivalent entry point) to launch the program
 
 To run tests, use your IDE’s built-in test runner or:
-
 mvn test
 (if using Maven)
+
 
 What I Learned
 This project allowed me to:
